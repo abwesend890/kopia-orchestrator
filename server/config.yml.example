@@ -1,0 +1,17 @@
+ui:
+  enabled: false
+
+notifications:
+  email:
+    to:
+      - admin@example.com
+    smtp_host: mail.example.com
+    smtp_port: 587
+    username_env: SMTP_USER
+    password_env: SMTP_PASSWORD
+
+clients:
+  - name: mail-server
+    password_env: CLIENT_MAIL_PASSWORD
+  - name: web-server
+    password_env: CLIENT_WEB_PASSWORD

@@ -1,0 +1,26 @@
+services:
+  kopia-server:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - kopia_repo:/repo
+      - kopia_config:/app/config
+      - ./config.yml:/etc/backup/config.yml:ro
+    env_file:
+      - ../.env
+    environment:
+      - VIRTUAL_HOST=${KOPIA_VIRTUAL_HOST}
+      - VIRTUAL_PORT=51515
+      - LETSENCRYPT_HOST=${KOPIA_VIRTUAL_HOST}
+    networks:
+      - proxy
+      - default
+
+volumes:
+  kopia_repo:
+  kopia_config:
+
+networks:
+  proxy:
+    external: true
+    name: proxy

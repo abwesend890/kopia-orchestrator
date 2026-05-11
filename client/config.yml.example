@@ -1,0 +1,33 @@
+server:
+  url: https://backup.example.com:51515
+  password_env: KOPIA_PASSWORD
+
+notifications:
+  email:
+    to:
+      - admin@example.com
+      - oncall@example.com
+    smtp_host: mail.example.com
+    smtp_port: 587
+    username_env: SMTP_USER
+    password_env: SMTP_PASSWORD
+
+services:
+  - name: stalwart
+    container: stalwart-mail
+    mode: stop
+    retention:
+      keep_daily: 7
+      keep_weekly: 4
+      keep_monthly: 12
+    paths:
+      - /data/stalwart/mail
+      - path: /data/stalwart/config
+        retention:
+          keep_daily: 30
+
+  - name: static-assets
+    retention:
+      keep_daily: 7
+    paths:
+      - /data/assets
