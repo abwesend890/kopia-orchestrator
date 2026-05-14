@@ -1,5 +1,7 @@
 server:
   url: https://backup.example.com:51515
+  username: example-user
+  hostname: example-hostname
   password_env: KOPIA_PASSWORD
 
 notifications:

@@ -1,5 +1,7 @@
 ui:
   enabled: false
+  username: kopia
+  password_env: KOPIA_UI_PASSWORD
 
 notifications:
   email:
@@ -11,7 +13,9 @@ notifications:
     password_env: SMTP_PASSWORD
 
 clients:
-  - name: mail-server
+  - username: example-user
+    hostname: example-hostname
     password_env: CLIENT_MAIL_PASSWORD
-  - name: web-server
+  - username: example-user
+    hostname: example-hostname
     password_env: CLIENT_WEB_PASSWORD

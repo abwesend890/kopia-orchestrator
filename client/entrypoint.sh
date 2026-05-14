@@ -10,14 +10,20 @@ fi
 
 server_url=$(yq '.server.url' "$CONFIG_FILE")
 password_env=$(yq '.server.password_env' "$CONFIG_FILE")
-password="${!password_env}"
+password="${!password_env:-}"
+client_user=$(yq '.server.username' "$CONFIG_FILE")
+client_host=$(yq '.server.hostname' "$CONFIG_FILE")
 
-echo "Connecting to Kopia server at $server_url..."
+if [ -z "$password" ]; then
+  echo "ERROR: $password_env not set"
+  exit 1
+fi
+
+echo "Connecting to Kopia server at $server_url as ${client_user}@${client_host}..."
 kopia repository connect server \
   --url "$server_url" \
-  --server-cert-fingerprint="" \
-  --override-username="$(hostname)" \
-  --override-hostname="$(hostname)" \
+  --override-username "$client_user" \
+  --override-hostname "$client_host" \
   --password "$password"
 
 echo "Running initial setup..."
@@ -31,7 +37,7 @@ done &
 
 echo "Kopia client ready. Scheduler active."
 exec kopia server start \
-  --address 0.0.0.0:51515 \
+  --address 127.0.0.1:51515 \
   --insecure \
   --no-ui \
   --without-password

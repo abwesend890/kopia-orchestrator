@@ -1,7 +1,8 @@
 services:
   nginx-proxy:
+    container_name: nginx-proxy
     image: nginxproxy/nginx-proxy
-    restart: unless-stopped
+    restart: always
     ports:
       - "80:80"
       - "443:443"
@@ -13,11 +14,13 @@ services:
       - proxy
 
   acme-companion:
+    container_name: acme-companion
     image: nginxproxy/acme-companion
-    restart: unless-stopped
+    restart: always
+    volumes_from:
+      - nginx-proxy
     volumes:
       - certs:/etc/nginx/certs
-      - html:/usr/share/nginx/html
       - acme:/etc/acme.sh
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:

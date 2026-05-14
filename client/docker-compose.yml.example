@@ -1,0 +1,13 @@
+services:
+  backup-client:
+    container_name: backup-client
+    build: .
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config.yml:/etc/backup/config.yml:ro
+      # Mount service data paths as read-only, e.g.:
+      # - /data/stalwart:/data/stalwart:ro
+      # - /data/assets:/data/assets:ro
+    env_file:
+      - .env

@@ -1,11 +1,12 @@
 services:
   backup-client:
+    container_name: backup-client
     build: .
-    restart: unless-stopped
+    restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./config.yml:/etc/backup/config.yml:ro
       # Mount service data paths below, e.g.:
       # - stalwart_data:/data/stalwart:ro
     env_file:
-      - ../.env
+      - .env
