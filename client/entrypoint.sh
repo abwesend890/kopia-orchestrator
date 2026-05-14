@@ -24,14 +24,15 @@ kopia repository connect server \
   --url "$server_url" \
   --override-username "$client_user" \
   --override-hostname "$client_host" \
-  --password "$password"
+  --password "$password" \
+  --enable-actions
 
 echo "Running initial setup..."
 /setup.sh
 
 echo "Watching config file for changes..."
-inotifywait -m -e modify,move_self "$CONFIG_FILE" 2>&1 | while read -r event; do
-  echo "Config changed: $event — re-running setup..."
+inotifywait -m -q -e modify,move_self "$CONFIG_FILE" | while read -r event; do
+  echo "Config changed — re-running setup..."
   /setup.sh
 done &
 
