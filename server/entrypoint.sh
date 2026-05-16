@@ -9,36 +9,6 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-if [ -f "$REPO_PATH/kopia.repository.f" ]; then
-  echo "Connecting to existing repository at $REPO_PATH..."
-  kopia repository connect filesystem --path "$REPO_PATH"
-else
-  echo "Creating new repository at $REPO_PATH..."
-  kopia repository create filesystem --path "$REPO_PATH"
-fi
-
-add_clients() {
-  local count
-  count=$(yq '.clients | length' "$CONFIG_FILE")
-
-  for ((i = 0; i < count; i++)); do
-    local username hostname password_env password
-    username=$(yq ".clients[$i].username" "$CONFIG_FILE")
-    hostname=$(yq ".clients[$i].hostname" "$CONFIG_FILE")
-    password_env=$(yq ".clients[$i].password_env" "$CONFIG_FILE")
-    password="${!password_env:-}"
-
-    if [ -z "$password" ]; then
-      echo "WARNING: $password_env not set, skipping client ${username}@${hostname}"
-      continue
-    fi
-
-    echo "Adding client: ${username}@${hostname}"
-    kopia server user add "${username}@${hostname}" --user-password "$password" 2>/dev/null \
-      || kopia server user set "${username}@${hostname}" --user-password "$password"
-  done
-}
-
 send_notification() {
   local subject="$1"
   local body="$2"
@@ -79,6 +49,47 @@ EOF
 
 export -f send_notification
 export CONFIG_FILE
+
+add_clients() {
+  local count
+  count=$(yq '.clients | length' "$CONFIG_FILE")
+
+  for ((i = 0; i < count; i++)); do
+    local username hostname password_env password
+    username=$(yq ".clients[$i].username" "$CONFIG_FILE")
+    hostname=$(yq ".clients[$i].hostname" "$CONFIG_FILE")
+    password_env=$(yq ".clients[$i].password_env" "$CONFIG_FILE")
+    password="${!password_env:-}"
+
+    if [ -z "$password" ]; then
+      echo "WARNING: $password_env not set, skipping client ${username}@${hostname}"
+      continue
+    fi
+
+    echo "Adding client: ${username}@${hostname}"
+    if ! kopia server user add "${username}@${hostname}" --user-password "$password" 2>/dev/null \
+      && ! kopia server user set "${username}@${hostname}" --user-password "$password"; then
+      echo "ERROR: failed to add client ${username}@${hostname}"
+      send_notification \
+        "Client add failed" \
+        "Could not add client ${username}@${hostname}\nHost: $(hostname)"
+    fi
+  done
+}
+
+if [ -f "$REPO_PATH/kopia.repository.f" ]; then
+  echo "Connecting to existing repository at $REPO_PATH..."
+  if ! kopia repository connect filesystem --path "$REPO_PATH"; then
+    send_notification "Repository connect failed" "Could not connect to repo at $REPO_PATH\nHost: $(hostname)"
+    exit 1
+  fi
+else
+  echo "Creating new repository at $REPO_PATH..."
+  if ! kopia repository create filesystem --path "$REPO_PATH"; then
+    send_notification "Repository create failed" "Could not create repo at $REPO_PATH\nHost: $(hostname)"
+    exit 1
+  fi
+fi
 
 add_clients
 

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CONFIG_FILE="/etc/backup/config.yml"
+source /notify.sh
 
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "ERROR: config file not found at $CONFIG_FILE"
@@ -20,20 +21,29 @@ if [ -z "$password" ]; then
 fi
 
 echo "Connecting to Kopia server at $server_url as ${client_user}@${client_host}..."
-kopia repository connect server \
+if ! kopia repository connect server \
   --url "$server_url" \
   --override-username "$client_user" \
   --override-hostname "$client_host" \
   --password "$password" \
-  --enable-actions
+  --enable-actions; then
+  send_notification \
+    "Connection failed" \
+    "Could not connect to $server_url as ${client_user}@${client_host}\nHost: $(hostname)"
+  exit 1
+fi
 
 echo "Running initial setup..."
 /setup.sh
 
 echo "Watching config file for changes..."
-inotifywait -m -q -e modify,move_self "$CONFIG_FILE" | while read -r event; do
+inotifywait -m -q -e modify,move_self "$CONFIG_FILE" | while read -r _; do
   echo "Config changed — re-running setup..."
-  /setup.sh
+  if ! /setup.sh; then
+    send_notification \
+      "Config reload failed" \
+      "setup.sh failed after config change\nHost: $(hostname)"
+  fi
 done &
 
 echo "Kopia client ready. Scheduler active."

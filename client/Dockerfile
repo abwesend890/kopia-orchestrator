@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY entrypoint.sh /entrypoint.sh
 COPY setup.sh /setup.sh
 COPY restore.sh /restore.sh
-RUN chmod +x /entrypoint.sh /setup.sh /restore.sh
+COPY notify.sh /notify.sh
+RUN chmod +x /entrypoint.sh /setup.sh /restore.sh /notify.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

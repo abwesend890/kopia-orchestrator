@@ -15,7 +15,4 @@ notifications:
 clients:
   - username: example-user
     hostname: example-hostname
-    password_env: CLIENT_MAIL_PASSWORD
-  - username: example-user
-    hostname: example-hostname
-    password_env: CLIENT_WEB_PASSWORD
+    password_env: CLIENT_EXAMPLE_PASSWORD
