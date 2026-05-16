@@ -41,6 +41,8 @@ EOF
   done
 }
 
+global_times=$(yq '.schedule.times // [] | .[]' "$CONFIG_FILE" 2>/dev/null)
+
 service_count=$(yq '.services | length' "$CONFIG_FILE")
 
 for ((s = 0; s < service_count; s++)); do
@@ -50,6 +52,11 @@ for ((s = 0; s < service_count; s++)); do
 
   if [ -z "$container" ] || [ "$container" = "null" ]; then
     mode="live"
+  fi
+
+  svc_times=$(yq ".services[$s].schedule.times // [] | .[]" "$CONFIG_FILE" 2>/dev/null)
+  if [ -z "$svc_times" ]; then
+    svc_times="$global_times"
   fi
 
   svc_keep_daily=$(yq ".services[$s].retention.keep_daily // \"\"" "$CONFIG_FILE")
@@ -83,6 +90,12 @@ for ((s = 0; s < service_count; s++)); do
     [ -n "$keep_daily" ] && [ "$keep_daily" != "null" ] && POLICY_ARGS+=("--keep-daily" "$keep_daily")
     [ -n "$keep_weekly" ] && [ "$keep_weekly" != "null" ] && POLICY_ARGS+=("--keep-weekly" "$keep_weekly")
     [ -n "$keep_monthly" ] && [ "$keep_monthly" != "null" ] && POLICY_ARGS+=("--keep-monthly" "$keep_monthly")
+
+    if [ -n "$svc_times" ]; then
+      while IFS= read -r t; do
+        POLICY_ARGS+=("--snapshot-time" "$t")
+      done <<< "$svc_times"
+    fi
 
     if [ "$mode" = "stop" ]; then
       POLICY_ARGS+=("--before-snapshot-root-action" "docker stop $container")
