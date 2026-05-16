@@ -85,10 +85,15 @@ echo ""
 echo "Sending test email..."
 echo ""
 
+CURL_ARGS=("--verbose")
+if [ "$smtp_port" = "465" ]; then
+  CURL_ARGS+=("--url" "smtps://${smtp_host}:${smtp_port}")
+else
+  CURL_ARGS+=("--url" "smtp://${smtp_host}:${smtp_port}" "--ssl-reqd")
+fi
+
 CURL_EXIT=0
-curl --verbose \
-  --url "smtp://${smtp_host}:${smtp_port}" \
-  --ssl-reqd \
+curl "${CURL_ARGS[@]}" \
   --mail-from "$username" \
   --mail-rcpt "$first_recipient" \
   --user "${username}:${password}" \

@@ -12,6 +12,8 @@ push-server:
 	rsync -avz --delete --exclude='.env' --exclude='config.yml' --exclude='data/' \
 		server/ \
 		$(word 1,$(subst :, ,$(BACKUP_HOST))):$(word 2,$(subst :, ,$(BACKUP_HOST)))/server/
+	rsync -avz test-notify.sh \
+		$(word 1,$(subst :, ,$(BACKUP_HOST))):$(word 2,$(subst :, ,$(BACKUP_HOST)))/test-notify.sh
 
 push-proxy:
 	rsync -avz --delete --exclude='.env' --exclude='config.yml' \
@@ -26,6 +28,8 @@ push-clients:
 		rsync -avz --delete --exclude='.env' --exclude='config.yml' --exclude='docker-compose.yml' --exclude='data/' \
 			client/ \
 			$$host:$$dir/client/; \
+		rsync -avz test-notify.sh \
+			$$host:$$dir/test-notify.sh; \
 	done
 
 # ── Tests ───────────────────────────────────────────────────────

@@ -21,10 +21,15 @@ send_notification() {
   username="${!username_env:-}"
   password="${!password_env:-}"
 
+  local curl_args=("--silent" "--show-error")
+  if [ "$smtp_port" = "465" ]; then
+    curl_args+=("--url" "smtps://${smtp_host}:${smtp_port}")
+  else
+    curl_args+=("--url" "smtp://${smtp_host}:${smtp_port}" "--ssl-reqd")
+  fi
+
   yq '.notifications.email.to[]' "$CONFIG_FILE" | while IFS= read -r to_addr; do
-    if ! curl --silent --show-error \
-      --url "smtp://${smtp_host}:${smtp_port}" \
-      --ssl-reqd \
+    if ! curl "${curl_args[@]}" \
       --mail-from "$username" \
       --mail-rcpt "$to_addr" \
       --user "${username}:${password}" \

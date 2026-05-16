@@ -51,6 +51,50 @@ YAML
   assert_mock_called "curl" "--user sender@test.com:secret"
 }
 
+@test "port 465 -- uses smtps protocol without ssl-reqd" {
+  write_config "$(cat <<'YAML'
+notifications:
+  email:
+    to:
+      - admin@test.com
+    smtp_host: mail.test.com
+    smtp_port: 465
+    username_env: SMTP_USER
+    password_env: SMTP_PASS
+YAML
+)"
+  export SMTP_USER="sender@test.com"
+  export SMTP_PASS="secret"
+
+  send_notification "Alert" "Something broke"
+
+  assert_mock_called "curl" "smtps://mail.test.com:465"
+  local calls_file="${BATS_TEST_TMPDIR}/curl.calls"
+  run grep -c "ssl-reqd" "$calls_file"
+  assert_output "0"
+}
+
+@test "port 587 -- uses smtp protocol with ssl-reqd" {
+  write_config "$(cat <<'YAML'
+notifications:
+  email:
+    to:
+      - admin@test.com
+    smtp_host: mail.test.com
+    smtp_port: 587
+    username_env: SMTP_USER
+    password_env: SMTP_PASS
+YAML
+)"
+  export SMTP_USER="sender@test.com"
+  export SMTP_PASS="secret"
+
+  send_notification "Alert" "Something broke"
+
+  assert_mock_called "curl" "smtp://mail.test.com:587"
+  assert_mock_called "curl" "--ssl-reqd"
+}
+
 @test "multiple recipients -- curl called per recipient" {
   write_config "$(cat <<'YAML'
 notifications:

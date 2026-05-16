@@ -110,7 +110,7 @@ YAML
   assert_output "0"
 }
 
-@test "valid config -- curl called with verbose and ssl-reqd" {
+@test "port 587 -- curl called with smtp protocol and ssl-reqd" {
   write_config "$(cat <<'YAML'
 notifications:
   email:
@@ -131,6 +131,31 @@ YAML
   assert_mock_called "curl" "--verbose"
   assert_mock_called "curl" "--ssl-reqd"
   assert_mock_called "curl" "smtp://mail.test.com:587"
+}
+
+@test "port 465 -- curl called with smtps protocol, no ssl-reqd" {
+  write_config "$(cat <<'YAML'
+notifications:
+  email:
+    to:
+      - admin@test.com
+    smtp_host: mail.test.com
+    smtp_port: 465
+    username_env: SMTP_USER
+    password_env: SMTP_PASS
+YAML
+)"
+  export SMTP_USER="sender@test.com"
+  export SMTP_PASS="secret"
+
+  run bash "$TEST_NOTIFY"
+
+  assert_success
+  assert_mock_called "curl" "--verbose"
+  assert_mock_called "curl" "smtps://mail.test.com:465"
+  local calls_file="${BATS_TEST_TMPDIR}/curl.calls"
+  run grep -c "ssl-reqd" "$calls_file"
+  assert_output "0"
 }
 
 @test "curl failure -- reports FAIL with exit code" {
