@@ -4,7 +4,7 @@ include .env
 
 # ── Targets ──────────────────────────────────────────────────────
 
-.PHONY: push-server push-proxy push-clients push-all test test-client test-server test-deps
+.PHONY: push-server push-proxy push-clients push-all test test-client test-server test-notify test-deps
 
 push-all: push-server push-proxy push-clients
 
@@ -30,13 +30,16 @@ push-clients:
 
 # ── Tests ───────────────────────────────────────────────────────
 
-test: test-client test-server
+test: test-client test-server test-notify
 
 test-client:
 	tests/libs/bats-core/bin/bats tests/client/
 
 test-server:
 	tests/libs/bats-core/bin/bats tests/server/
+
+test-notify:
+	tests/libs/bats-core/bin/bats tests/test-notify.bats
 
 test-deps:
 	git submodule update --init --recursive

@@ -1,4 +1,4 @@
-PROJECT_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+PROJECT_ROOT="$(cd "${BATS_TEST_DIRNAME}" && git rev-parse --show-toplevel)"
 
 load "${PROJECT_ROOT}/tests/libs/bats-support/load"
 load "${PROJECT_ROOT}/tests/libs/bats-assert/load"

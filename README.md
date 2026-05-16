@@ -147,6 +147,22 @@ docker exec backup-client /restore.sh restore <snapshot-id> /tmp/restore
 
 Stop the target container yourself before restoring, then copy data back and restart.
 
+## Testing Notifications
+
+Verify SMTP credentials and connectivity from inside a running container:
+
+```bash
+# On the server host:
+docker exec -i kopia-server bash < test-notify.sh
+
+# On a client host:
+docker exec -i backup-client bash < test-notify.sh
+```
+
+Sends a single test email to the first recipient in `config.yml` with verbose SMTP output. Shows the full handshake on success or the exact error (auth failure, DNS, connection refused) on failure.
+
+Run `bash test-notify.sh --help` for details.
+
 ## Project Structure
 
 ```
@@ -162,8 +178,9 @@ Stop the target container yourself before restoring, then copy data back and res
 │   ├── docker-compose.yml
 │   ├── entrypoint.sh
 │   ├── setup.sh
+│   ├── notify.sh
 │   ├── restore.sh
 │   └── config.yml.example
-├── .env.example
+├── test-notify.sh              # SMTP smoke test
 └── CONTEXT.md                  # domain glossary
 ```
