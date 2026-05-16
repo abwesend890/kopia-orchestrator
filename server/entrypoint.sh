@@ -3,49 +3,13 @@ set -euo pipefail
 
 CONFIG_FILE="${CONFIG_FILE:-/etc/backup/config.yml}"
 REPO_PATH="${REPO_PATH:-/repo}"
+export NOTIFY_SUBJECT_PREFIX="Backup Server"
+source "${NOTIFY_SH:-/notify.sh}"
 
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "ERROR: config file not found at $CONFIG_FILE"
   exit 1
 fi
-
-send_notification() {
-  local subject="$1"
-  local body="$2"
-
-  local enabled
-  enabled=$(yq '.notifications.email // ""' "$CONFIG_FILE")
-  if [ -z "$enabled" ] || [ "$enabled" = "null" ]; then
-    return
-  fi
-
-  local smtp_host smtp_port username_env password_env username password
-  smtp_host=$(yq '.notifications.email.smtp_host' "$CONFIG_FILE")
-  smtp_port=$(yq '.notifications.email.smtp_port' "$CONFIG_FILE")
-  username_env=$(yq '.notifications.email.username_env' "$CONFIG_FILE")
-  password_env=$(yq '.notifications.email.password_env' "$CONFIG_FILE")
-  username="${!username_env:-}"
-  password="${!password_env:-}"
-
-  local recipients
-  recipients=$(yq '.notifications.email.to[]' "$CONFIG_FILE")
-
-  for to_addr in $recipients; do
-    curl --silent --show-error \
-      --url "smtp://${smtp_host}:${smtp_port}" \
-      --ssl-reqd \
-      --mail-from "$username" \
-      --mail-rcpt "$to_addr" \
-      --user "${username}:${password}" \
-      -T - <<EOF
-From: $username
-To: $to_addr
-Subject: [Backup Server] $subject
-
-$body
-EOF
-  done
-}
 
 export -f send_notification
 export CONFIG_FILE
@@ -94,14 +58,17 @@ fi
 add_clients
 
 DOMAIN="${KOPIA_VIRTUAL_HOST}"
-TLS_CERT="/certs/${DOMAIN}/fullchain.pem"
-TLS_KEY="/certs/${DOMAIN}/key.pem"
+CERT_DIR="${CERT_DIR:-/certs}"
+TLS_CERT="${CERT_DIR}/${DOMAIN}/fullchain.pem"
+TLS_KEY="${CERT_DIR}/${DOMAIN}/key.pem"
 
 SERVER_ARGS=(
   "--address" "0.0.0.0:51515"
 )
 
+have_tls=false
 if [ -f "$TLS_CERT" ] && [ -f "$TLS_KEY" ]; then
+  have_tls=true
   echo "Using TLS certs for $DOMAIN"
   SERVER_ARGS+=("--tls-cert-file" "$TLS_CERT" "--tls-key-file" "$TLS_KEY")
 else
@@ -124,7 +91,7 @@ else
   fi
 fi
 
-if [ -f "$TLS_CERT" ]; then
+if [ "$have_tls" = "true" ]; then
   (inotifywait -m -e modify,create "$TLS_CERT" 2>/dev/null | while read -r _; do
     echo "TLS cert renewed — restarting kopia..."
     kill 1

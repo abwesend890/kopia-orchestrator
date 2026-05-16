@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CONFIG_FILE="${CONFIG_FILE:-/etc/backup/config.yml}"
+export NOTIFY_SUBJECT_PREFIX="Backup Client"
 source "${NOTIFY_SH:-/notify.sh}"
 
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -34,7 +35,12 @@ if ! kopia repository connect server \
 fi
 
 echo "Running initial setup..."
-"${SETUP_SH:-/setup.sh}"
+if ! "${SETUP_SH:-/setup.sh}"; then
+  echo "WARNING: initial setup failed — will retry on next config change"
+  send_notification \
+    "Initial setup failed" \
+    "setup.sh failed during startup\nHost: $(hostname)"
+fi
 
 echo "Watching config file for changes..."
 inotifywait -m -q -e modify,move_self "$CONFIG_FILE" | while read -r _; do

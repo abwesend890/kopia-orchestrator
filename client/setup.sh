@@ -31,7 +31,7 @@ for ((s = 0; s < service_count; s++)); do
   for ((p = 0; p < path_count; p++)); do
     path_val=$(yq ".services[$s].paths[$p]" "$CONFIG_FILE")
 
-    if echo "$path_val" | grep -q "^/"; then
+    if [[ "$path_val" == /* ]]; then
       snapshot_path="$path_val"
       keep_daily="$svc_keep_daily"
       keep_weekly="$svc_keep_weekly"

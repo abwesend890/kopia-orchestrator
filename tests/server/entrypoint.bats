@@ -9,6 +9,7 @@ setup() {
   export REPO_PATH="${BATS_TEST_TMPDIR}/repo"
   mkdir -p "$REPO_PATH"
   export KOPIA_VIRTUAL_HOST="backup.test.com"
+  export NOTIFY_SH="${PROJECT_ROOT}/server/notify.sh"
   ENTRYPOINT="${PROJECT_ROOT}/server/entrypoint.sh"
 }
 
@@ -125,17 +126,16 @@ YAML
 @test "TLS certs present -- tls flags in server args" {
   write_server_config ""
   export CLIENT_PASS="secret"
-  mkdir -p "${BATS_TEST_TMPDIR}/certs/backup.test.com"
-  touch "${BATS_TEST_TMPDIR}/certs/backup.test.com/fullchain.pem"
-  touch "${BATS_TEST_TMPDIR}/certs/backup.test.com/key.pem"
+  export CERT_DIR="${BATS_TEST_TMPDIR}/certs"
+  mkdir -p "${CERT_DIR}/backup.test.com"
+  touch "${CERT_DIR}/backup.test.com/fullchain.pem"
+  touch "${CERT_DIR}/backup.test.com/key.pem"
 
-  # Override the cert paths by pointing to our tmpdir
-  # The script uses /certs/${DOMAIN}/ -- we need to test with real paths
-  # Since we can't override the cert path, we test the fallback case instead
   run bash "$ENTRYPOINT"
 
   assert_success
-  assert_mock_called "kopia" "--insecure"
+  assert_mock_called "kopia" "--tls-cert-file"
+  assert_mock_called "kopia" "--tls-key-file"
 }
 
 @test "no TLS certs -- falls back to insecure" {

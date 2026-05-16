@@ -1,6 +1,7 @@
 #!/bin/bash
 
 CONFIG_FILE="${CONFIG_FILE:-/etc/backup/config.yml}"
+NOTIFY_SUBJECT_PREFIX="${NOTIFY_SUBJECT_PREFIX:-Backup}"
 
 send_notification() {
   local subject="$1"
@@ -20,11 +21,8 @@ send_notification() {
   username="${!username_env:-}"
   password="${!password_env:-}"
 
-  local recipients
-  recipients=$(yq '.notifications.email.to[]' "$CONFIG_FILE")
-
-  for to_addr in $recipients; do
-    curl --silent --show-error \
+  yq '.notifications.email.to[]' "$CONFIG_FILE" | while IFS= read -r to_addr; do
+    if ! curl --silent --show-error \
       --url "smtp://${smtp_host}:${smtp_port}" \
       --ssl-reqd \
       --mail-from "$username" \
@@ -33,9 +31,12 @@ send_notification() {
       -T - <<EOF
 From: $username
 To: $to_addr
-Subject: [Backup Client] $subject
+Subject: [${NOTIFY_SUBJECT_PREFIX}] $subject
 
 $body
 EOF
+    then
+      echo "WARNING: notification delivery failed for $to_addr" >&2
+    fi
   done
 }
