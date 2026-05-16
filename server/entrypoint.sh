@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-CONFIG_FILE="/etc/backup/config.yml"
-REPO_PATH="/repo"
+CONFIG_FILE="${CONFIG_FILE:-/etc/backup/config.yml}"
+REPO_PATH="${REPO_PATH:-/repo}"
 
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "ERROR: config file not found at $CONFIG_FILE"

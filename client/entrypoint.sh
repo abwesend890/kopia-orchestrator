@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-CONFIG_FILE="/etc/backup/config.yml"
-source /notify.sh
+CONFIG_FILE="${CONFIG_FILE:-/etc/backup/config.yml}"
+source "${NOTIFY_SH:-/notify.sh}"
 
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "ERROR: config file not found at $CONFIG_FILE"
@@ -34,12 +34,12 @@ if ! kopia repository connect server \
 fi
 
 echo "Running initial setup..."
-/setup.sh
+"${SETUP_SH:-/setup.sh}"
 
 echo "Watching config file for changes..."
 inotifywait -m -q -e modify,move_self "$CONFIG_FILE" | while read -r _; do
   echo "Config changed — re-running setup..."
-  if ! /setup.sh; then
+  if ! "${SETUP_SH:-/setup.sh}"; then
     send_notification \
       "Config reload failed" \
       "setup.sh failed after config change\nHost: $(hostname)"

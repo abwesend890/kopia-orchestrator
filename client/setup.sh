@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-CONFIG_FILE="/etc/backup/config.yml"
-source /notify.sh
+CONFIG_FILE="${CONFIG_FILE:-/etc/backup/config.yml}"
+source "${NOTIFY_SH:-/notify.sh}"
 
 global_times=$(yq '.schedule.times // [] | .[]' "$CONFIG_FILE" 2>/dev/null)
 
