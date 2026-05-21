@@ -1,6 +1,6 @@
 services:
   backup-client:
-    image_name: tran-kopia-client
+    image: kopia-client
     container_name: backup-client
     build: .
     restart: always
