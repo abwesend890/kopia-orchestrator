@@ -11,32 +11,34 @@ setup() {
   run bash "$TEST_NOTIFY" --help
 
   assert_success
-  assert_output --partial "SMTP notification smoke test"
+  assert_output --partial "Notification smoke test"
   assert_output --partial "docker exec"
 }
 
-@test "missing config file -- exits 1" {
+@test "no config + no contact form -- exits 1" {
   export CONFIG_FILE="${BATS_TEST_TMPDIR}/nonexistent.yml"
+  unset CONTACT_FORM_URL 2>/dev/null || true
 
   run bash "$TEST_NOTIFY"
 
   assert_failure
   assert_output --partial "FAIL"
-  assert_output --partial "config not found"
+  assert_output --partial "no notification method configured"
 }
 
-@test "no notifications section -- exits 1" {
+@test "no email section + no contact form -- exits 1" {
   write_config "$(cat <<'YAML'
 server:
   url: https://backup.test.com
 YAML
 )"
+  unset CONTACT_FORM_URL 2>/dev/null || true
 
   run bash "$TEST_NOTIFY"
 
   assert_failure
   assert_output --partial "FAIL"
-  assert_output --partial "no notifications.email section"
+  assert_output --partial "no notification method configured"
 }
 
 @test "missing smtp credentials env var -- exits 1" {
@@ -179,4 +181,93 @@ YAML
   assert_failure
   assert_output --partial "FAIL"
   assert_output --partial "could not connect"
+}
+
+# --- contact form fallback in test-notify.sh ---
+
+@test "no email config + CONTACT_FORM_URL -- sends test POST" {
+  write_config "services: []"
+  export CONTACT_FORM_URL="https://example.com/contact"
+  export CONTACT_FORM_EMAIL="backup@test.com"
+  export CONTACT_FORM_NAME="Backup Agent"
+
+  run bash "$TEST_NOTIFY"
+
+  assert_success
+  assert_output --partial "PASS"
+  assert_output --partial "contact form POST sent"
+  assert_mock_called_times "curl" 1
+  assert_mock_called "curl" "--data-urlencode email=backup@test.com"
+  assert_mock_called "curl" "--data-urlencode name=Backup Agent"
+  assert_mock_called "curl" "https://example.com/contact"
+}
+
+@test "contact form -- shows config in output" {
+  write_config "services: []"
+  export CONTACT_FORM_URL="https://example.com/contact"
+  export CONTACT_FORM_EMAIL="backup@test.com"
+  export CONTACT_FORM_NAME="Backup Agent"
+
+  run bash "$TEST_NOTIFY"
+
+  assert_success
+  assert_output --partial "url:   https://example.com/contact"
+  assert_output --partial "email: backup@test.com"
+  assert_output --partial "name:  Backup Agent"
+}
+
+@test "contact form -- missing CONTACT_FORM_EMAIL -- exits 1" {
+  write_config "services: []"
+  export CONTACT_FORM_URL="https://example.com/contact"
+  unset CONTACT_FORM_EMAIL 2>/dev/null || true
+  export CONTACT_FORM_NAME="Backup Agent"
+
+  run bash "$TEST_NOTIFY"
+
+  assert_failure
+  assert_output --partial "FAIL"
+  assert_output --partial "CONTACT_FORM_EMAIL"
+}
+
+@test "contact form curl failure -- reports FAIL" {
+  create_mock_with_output "curl" "connection refused" 7
+  write_config "services: []"
+  export CONTACT_FORM_URL="https://example.com/contact"
+  export CONTACT_FORM_EMAIL="backup@test.com"
+  export CONTACT_FORM_NAME="Backup Agent"
+
+  run bash "$TEST_NOTIFY"
+
+  assert_failure
+  assert_output --partial "FAIL"
+  assert_output --partial "could not connect"
+}
+
+@test "email config present + CONTACT_FORM_URL -- SMTP wins" {
+  write_config "$(cat <<'YAML'
+notifications:
+  email:
+    to:
+      - admin@test.com
+    smtp_host: mail.test.com
+    smtp_port: 587
+    username_env: SMTP_USER
+    password_env: SMTP_PASS
+YAML
+)"
+  export SMTP_USER="sender@test.com"
+  export SMTP_PASS="secret"
+  export CONTACT_FORM_URL="https://example.com/contact"
+  export CONTACT_FORM_EMAIL="backup@test.com"
+  export CONTACT_FORM_NAME="Backup Agent"
+
+  run bash "$TEST_NOTIFY"
+
+  assert_success
+  assert_output --partial "PASS"
+  assert_output --partial "test email sent"
+  assert_mock_called "curl" "smtp://mail.test.com:587"
+  local calls_file="${BATS_TEST_TMPDIR}/curl.calls"
+  run grep -c "data-urlencode" "$calls_file"
+  assert_output "0"
 }
