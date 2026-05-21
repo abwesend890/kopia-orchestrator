@@ -77,10 +77,11 @@ fi
 first_recipient=$(yq '.notifications.email.to[0]' "$CONFIG_FILE")
 
 echo "Checking SMTP config..."
-echo "  smtp_host: $smtp_host"
-echo "  smtp_port: $smtp_port"
-echo "  username:  $username"
-echo "  recipient: $first_recipient (first of $recipient_count)"
+echo "  smtp_host:        $smtp_host"
+echo "  smtp_port:        $smtp_port"
+echo "  username:         $username"
+echo "  recipient:        $first_recipient (first of $recipient_count)"
+echo "  letsencrypt_host: ${LETSENCRYPT_HOST:-<not set>}"
 echo ""
 echo "Sending test email..."
 echo ""
@@ -104,6 +105,7 @@ Subject: [Backup Test] SMTP connectivity check
 
 This is a test email from test-notify.sh.
 Host: $(hostname)
+Letsencrypt Host: ${LETSENCRYPT_HOST:-<not set>}
 Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
 If you received this, SMTP notifications are working.
