@@ -13,6 +13,19 @@ SOURCE SERVER                             BACKUP SERVER
          TLS via nginx-proxy + Let's Encrypt
 ```
 
+## Why not just Kopia?
+
+Kopia handles deduplication, encryption, and scheduling well, but leaves deployment and multi-service orchestration to you. This project fills those gaps:
+
+- **Declarative multi-service config** -- one YAML file defines all services, paths, retention policies, and schedules. No manual `kopia policy set` per path.
+- **Container-aware snapshots** -- `mode: stop` automatically stops a container before snapshot and restarts it after, so databases and mail stores get consistent backups without manual scripting.
+- **Live-reload** -- the client watches `config.yml` with `inotifywait`. Add a service or change retention and setup re-runs without restarting the container.
+- **Reliable notifications** -- Kopia's built-in notifications have [open issues](https://github.com/kopia/kopia/issues/4402). This project provides its own SMTP email and contact form POST notifications on connection failures, snapshot errors, and policy failures.
+- **Per-path retention overrides** -- set retention at the service level, then override specific paths (e.g. config dirs kept longer than data dirs).
+- **Per-service schedules** -- global schedule with per-service overrides via `schedule.times`.
+- **TLS out of the box** -- nginx-proxy + Let's Encrypt companion handle certificates automatically.
+- **Restore helper** -- `restore.sh` wraps Kopia's snapshot listing and restore commands for quick reference.
+
 ## Quick Start
 
 ### 1. Backup Server
@@ -120,6 +133,11 @@ KOPIA_VIRTUAL_HOST=backup.example.com
 ACME_EMAIL=admin@example.com
 SMTP_USER=notifications@example.com
 SMTP_PASSWORD=changeme
+
+# Contact form fallback (client-only, used when SMTP is not configured)
+CONTACT_FORM_URL=https://example.com/contact
+CONTACT_FORM_EMAIL=backup@example.com
+CONTACT_FORM_NAME=Backup Agent
 ```
 
 ## Scheduling
@@ -132,7 +150,7 @@ The client watches `config.yml` with `inotifywait`. Changes are detected automat
 
 ## Restore
 
-Restore is manual. Exec into the client container:
+Service volumes are mounted read-only in the client container, so restore requires a writable mount or running from outside the container. `restore.sh` is a reference for the Kopia commands involved:
 
 ```bash
 # List snapshots
@@ -141,15 +159,15 @@ docker exec backup-client /restore.sh list
 # List snapshots for a specific path
 docker exec backup-client /restore.sh list /data/stalwart
 
-# Restore a snapshot
+# Restore a snapshot (needs a writable target path)
 docker exec backup-client /restore.sh restore <snapshot-id> /tmp/restore
 ```
 
-Stop the target container yourself before restoring, then copy data back and restart.
+In practice: stop the target service, mount the volume read-write (or use a temporary container), restore, then restart.
 
 ## Testing Notifications
 
-Verify SMTP credentials and connectivity from inside a running container:
+Verify notification connectivity from inside a running container:
 
 ```bash
 # On the server host:
@@ -159,7 +177,7 @@ docker exec -i kopia-server bash < test-notify.sh
 docker exec -i backup-client bash < test-notify.sh
 ```
 
-Sends a single test email to the first recipient in `config.yml` with verbose SMTP output. Shows the full handshake on success or the exact error (auth failure, DNS, connection refused) on failure.
+Auto-detects the notification method (SMTP first, contact form fallback) and sends a test message with verbose output. Shows the exact error (auth failure, DNS, connection refused) on failure.
 
 Run `bash test-notify.sh --help` for details.
 
@@ -181,6 +199,6 @@ Run `bash test-notify.sh --help` for details.
 │   ├── notify.sh
 │   ├── restore.sh
 │   └── config.yml.example
-├── test-notify.sh              # SMTP smoke test
+├── test-notify.sh              # notification smoke test
 └── CONTEXT.md                  # domain glossary
 ```
