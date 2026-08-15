@@ -148,6 +148,45 @@ YAML
   assert_mock_called "kopia" "--insecure"
 }
 
+@test "TLS certs present -- cert watcher watches cert dir recursively" {
+  write_server_config ""
+  export CLIENT_PASS="secret"
+  export CERT_DIR="${BATS_TEST_TMPDIR}/certs"
+  mkdir -p "${CERT_DIR}/backup.test.com"
+  touch "${CERT_DIR}/backup.test.com/fullchain.pem"
+  touch "${CERT_DIR}/backup.test.com/key.pem"
+
+  run bash "$ENTRYPOINT"
+
+  assert_success
+  assert_mock_called "inotifywait" "-m -r -e close_write,create,moved_to ${CERT_DIR}"
+}
+
+@test "no TLS certs yet -- cert watcher still started so first issuance is picked up" {
+  write_server_config ""
+  export CLIENT_PASS="secret"
+  export CERT_DIR="${BATS_TEST_TMPDIR}/certs"
+  mkdir -p "$CERT_DIR"
+
+  run bash "$ENTRYPOINT"
+
+  assert_success
+  assert_mock_called "kopia" "--insecure"
+  assert_mock_called "inotifywait" "$CERT_DIR"
+}
+
+@test "cert dir not mounted -- warning, no cert watcher" {
+  write_server_config ""
+  export CLIENT_PASS="secret"
+  export CERT_DIR="${BATS_TEST_TMPDIR}/missing-certs"
+
+  run bash "$ENTRYPOINT"
+
+  assert_success
+  assert_output --partial "WARNING: cert directory ${CERT_DIR} is not mounted"
+  assert_mock_not_called "inotifywait"
+}
+
 @test "UI disabled -- no-ui flag" {
   write_server_config ""
   export CLIENT_PASS="secret"

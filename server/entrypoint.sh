@@ -66,13 +66,37 @@ SERVER_ARGS=(
   "--address" "0.0.0.0:51515"
 )
 
-have_tls=false
+cert_fingerprint() {
+  [ -f "$TLS_CERT" ] && [ -f "$TLS_KEY" ] || return 0
+  md5sum "$TLS_CERT" "$TLS_KEY"
+}
+
+# Watches the whole cert volume rather than the cert file: on first boot the
+# domain directory does not exist yet, and acme-companion replaces the cert
+# files on renewal instead of writing them in place, so a watch on the file
+# itself would either fail to start or follow a stale inode. Events for other
+# domains are ignored because the fingerprint does not change.
+restart_on_cert_change() {
+  local known_fingerprint
+  known_fingerprint=$(cert_fingerprint)
+
+  inotifywait -m -r -e close_write,create,moved_to "$CERT_DIR" | while read -r _; do
+    local current_fingerprint
+    current_fingerprint=$(cert_fingerprint)
+    [ -n "$current_fingerprint" ] || continue
+    [ "$current_fingerprint" != "$known_fingerprint" ] || continue
+
+    echo "TLS cert for ${DOMAIN} changed, restarting kopia to load it..."
+    kill 1
+    return
+  done
+}
+
 if [ -f "$TLS_CERT" ] && [ -f "$TLS_KEY" ]; then
-  have_tls=true
   echo "Using TLS certs for $DOMAIN"
   SERVER_ARGS+=("--tls-cert-file" "$TLS_CERT" "--tls-key-file" "$TLS_KEY")
 else
-  echo "WARNING: TLS certs not found at $TLS_CERT — falling back to --insecure"
+  echo "WARNING: TLS certs not found at $TLS_CERT, falling back to --insecure"
   SERVER_ARGS+=("--insecure")
 fi
 
@@ -91,11 +115,10 @@ else
   fi
 fi
 
-if [ "$have_tls" = "true" ]; then
-  (inotifywait -m -e modify,create "$TLS_CERT" 2>/dev/null | while read -r _; do
-    echo "TLS cert renewed — restarting kopia..."
-    kill 1
-  done) &
+if [ -d "$CERT_DIR" ]; then
+  restart_on_cert_change &
+else
+  echo "WARNING: cert directory ${CERT_DIR} is not mounted, cert renewals will not be picked up"
 fi
 
 echo "Starting Kopia server..."
