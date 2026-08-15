@@ -14,6 +14,16 @@ services:
     env_file:
       - .env
     environment:
+      # VIRTUAL_HOST is what makes nginx-proxy generate a vhost, which is what
+      # serves the ACME HTTP-01 challenge. Without it acme-companion still tries
+      # to issue, but every challenge hits nginx-proxy's catch-all 503.
+      - VIRTUAL_HOST=${KOPIA_VIRTUAL_HOST}
+      - VIRTUAL_PORT=51515
+      # Kopia terminates its own TLS using the certs from proxy_certs, so the
+      # proxy must speak https to it. Until the first cert is issued kopia runs
+      # --insecure and port 443 returns 502; issuance is unaffected because the
+      # challenge is served by nginx-proxy itself on port 80.
+      - VIRTUAL_PROTO=https
       - LETSENCRYPT_HOST=${KOPIA_VIRTUAL_HOST}
     networks:
       - proxy
