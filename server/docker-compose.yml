@@ -1,6 +1,10 @@
 services:
   kopia-server:
     container_name: kopia-server
+    # Kopia runs maintenance only as its recorded owner (user@hostname).
+    # Docker's default hostname is the container ID, which changes on every
+    # recreate and silently stops maintenance.
+    hostname: kopia-server
     build: .
     restart: always
     ports:
