@@ -12,7 +12,16 @@ notifications:
     username_env: SMTP_USER
     password_env: SMTP_PASSWORD
 
+# Alert when a client's newest snapshot of a path is older than this.
+# Checked shortly after startup, then daily. 0 disables. Default: 26.
+stale_check:
+  max_age_hours: 26
+
 clients:
   - username: example-user
     hostname: example-hostname
     password_env: CLIENT_EXAMPLE_PASSWORD
+  - username: example-laptop-user
+    hostname: example-laptop
+    password_env: CLIENT_LAPTOP_PASSWORD
+    max_age_hours: 168          # overrides stale_check for this client

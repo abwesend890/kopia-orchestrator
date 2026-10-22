@@ -10,6 +10,9 @@ setup() {
   mkdir -p "$REPO_PATH"
   export KOPIA_VIRTUAL_HOST="backup.test.com"
   export NOTIFY_SH="${PROJECT_ROOT}/server/notify.sh"
+  export CHECK_STALE_SH="${PROJECT_ROOT}/server/check-stale.sh"
+  # A failing sleep ends the background stale-check loop right away.
+  create_mock_with_output "sleep" "" 1
   ENTRYPOINT="${PROJECT_ROOT}/server/entrypoint.sh"
 }
 
@@ -185,6 +188,23 @@ YAML
   assert_success
   assert_output --partial "WARNING: cert directory ${CERT_DIR} is not mounted"
   assert_mock_not_called "inotifywait"
+}
+
+@test "startup -- stale-check loop started with the startup delay" {
+  write_server_config ""
+  export CLIENT_PASS="secret"
+
+  run bash "$ENTRYPOINT"
+
+  assert_success
+  # The loop runs in the background; give it a moment to call sleep.
+  local attempt
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    [ -s "${BATS_TEST_TMPDIR}/sleep.calls" ] && break
+    /bin/sleep 0.1
+  done
+  source "$CHECK_STALE_SH"
+  assert_mock_called "sleep" "$STALE_CHECK_STARTUP_DELAY_SECONDS"
 }
 
 @test "UI disabled -- no-ui flag" {

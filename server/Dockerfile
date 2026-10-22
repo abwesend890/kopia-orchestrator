@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY entrypoint.sh /entrypoint.sh
 COPY notify.sh /notify.sh
-RUN chmod +x /entrypoint.sh /notify.sh
+COPY check-stale.sh /check-stale.sh
+RUN chmod +x /entrypoint.sh /notify.sh /check-stale.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -145,13 +145,22 @@ notifications:
     username_env: SMTP_USER
     password_env: SMTP_PASSWORD
 
+stale_check:
+  max_age_hours: 26
+
 clients:
-  - name: mail-server
+  - username: mail-server
+    hostname: mail.example.com
     password_env: CLIENT_MAIL_PASSWORD
+  - username: nico
+    hostname: laptop
+    password_env: CLIENT_LAPTOP_PASSWORD
+    max_age_hours: 168
 ```
 
 - **ui.enabled** — Set `true` to enable the Kopia web UI.
-- **clients** — Each client authenticates with a unique password from an environment variable.
+- **clients** — Each client (`username@hostname`) authenticates with a unique password from an environment variable.
+- **stale_check.max_age_hours** — The server checks 5 minutes after startup, then daily, and sends one notification listing every path whose newest complete snapshot is older than this (default 26). A client with no snapshots at all is listed too. `max_age_hours` on a client overrides it, `0` disables it. A path that is no longer backed up keeps alerting until its snapshots are deleted.
 
 ### Environment (`.env`)
 

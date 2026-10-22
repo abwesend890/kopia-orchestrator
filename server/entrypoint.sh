@@ -5,6 +5,7 @@ CONFIG_FILE="${CONFIG_FILE:-/etc/backup/config.yml}"
 REPO_PATH="${REPO_PATH:-/repo}"
 export NOTIFY_SUBJECT_PREFIX="Backup Server"
 source "${NOTIFY_SH:-/notify.sh}"
+source "${CHECK_STALE_SH:-/check-stale.sh}"
 
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "ERROR: config file not found at $CONFIG_FILE"
@@ -120,6 +121,8 @@ if [ -d "$CERT_DIR" ]; then
 else
   echo "WARNING: cert directory ${CERT_DIR} is not mounted, cert renewals will not be picked up"
 fi
+
+run_stale_checks &
 
 echo "Starting Kopia server..."
 exec kopia server start "${SERVER_ARGS[@]}"
