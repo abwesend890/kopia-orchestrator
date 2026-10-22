@@ -1,2 +1,6 @@
 .claude
 .env
+
+# Host-specific, kept next to the clone on each host
+config.yml
+data/
