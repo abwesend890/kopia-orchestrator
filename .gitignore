@@ -1,6 +1,8 @@
 .claude
 .env
 
-# Host-specific, kept next to the clone on each host
+# Host-specific, kept next to the clone on each host.
+# client/docker-compose.yml holds each host's data mounts.
 config.yml
 data/
+client/docker-compose.yml

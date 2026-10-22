@@ -23,32 +23,40 @@ Kopia handles deduplication, encryption, and scheduling well, but leaves deploym
 - **Reliable notifications** -- Kopia's built-in notifications have [open issues](https://github.com/kopia/kopia/issues/4402). This project provides its own SMTP email and contact form POST notifications on connection failures, snapshot errors, and policy failures.
 - **Per-path retention overrides** -- set retention at the service level, then override specific paths (e.g. config dirs kept longer than data dirs).
 - **Per-service schedules** -- global schedule with per-service overrides via `schedule.times`.
-- **TLS out of the box** -- nginx-proxy + Let's Encrypt companion handle certificates automatically.
+- **TLS via your existing proxy** -- an nginx-proxy + acme-companion setup issues the certificate; the server picks up renewals automatically.
 - **Restore helper** -- `restore.sh` wraps Kopia's snapshot listing and restore commands for quick reference.
 
 ## Quick Start
 
+Each host runs a clone of this repo. Host-specific files (`.env`, `config.yml`,
+`data/`, `client/docker-compose.yml`) live next to the clone and are git-ignored.
+
 ### 1. Backup Server
 
+Requires a running [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) with
+[acme-companion](https://github.com/nginx-proxy/acme-companion) on the Docker
+network `proxy`, keeping its certificates in a volume named `proxy_certs`. The
+server reads its certificate from that volume.
+
 ```bash
+git clone https://github.com/abwesend890/kopia-orchestrator.git /opt/backup
+cd /opt/backup/server
 cp .env.example .env           # set passwords, domain, SMTP credentials
-cp server/config.yml.example server/config.yml
-
-# Start reverse proxy (once per host)
-cd proxy && docker compose up -d
-
-# Start Kopia server
-cd server && docker compose up -d
+cp config.yml.example config.yml
+docker compose up -d
 ```
 
 ### 2. Source Server
 
 ```bash
+git clone https://github.com/abwesend890/kopia-orchestrator.git /opt/backup
+cd /opt/backup/client
 cp .env.example .env
-cp client/config.yml.example client/config.yml
+cp config.yml.example config.yml
+cp docker-compose.yml.example docker-compose.yml
 ```
 
-Edit `client/config.yml` — define your services and paths. Then mount service data in `client/docker-compose.yml`:
+Edit `config.yml` — define your services and paths. Then mount service data in `docker-compose.yml`:
 
 ```yaml
 services:
@@ -56,12 +64,33 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./config.yml:/etc/backup/config.yml:ro
-      - stalwart_data:/data/stalwart:ro
+      - /opt/stalwart-mail:/data/stalwart:ro
 ```
 
 ```bash
-cd client && docker compose up -d
+docker compose up -d
 ```
+
+## Updating Hosts
+
+List the hosts in `.env` on your workstation, then pull `main` on all of them:
+
+```bash
+BACKUP_HOST  = root@backup.example.com:/opt/backup
+CLIENT_HOSTS = root@mail.example.com:/opt/backup web.example.com:/opt/backup
+```
+
+```bash
+make pull-all        # or pull-server / pull-clients
+```
+
+Pulling does not restart anything. Run `docker compose up -d --build` in
+`server/` or `client/` on a host to apply the new code.
+
+To fix something directly on a host, commit on a branch and push it with a
+write [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys).
+`main` requires a pull request, so nothing reaches the other hosts until it
+is merged.
 
 ## Configuration
 
@@ -130,7 +159,6 @@ clients:
 KOPIA_PASSWORD=changeme
 CLIENT_MAIL_PASSWORD=changeme
 KOPIA_VIRTUAL_HOST=backup.example.com
-ACME_EMAIL=admin@example.com
 SMTP_USER=notifications@example.com
 SMTP_PASSWORD=changeme
 
@@ -184,8 +212,6 @@ Run `bash test-notify.sh --help` for details.
 ## Project Structure
 
 ```
-├── proxy/
-│   └── docker-compose.yml      # nginx-proxy + acme-companion
 ├── server/
 │   ├── Dockerfile
 │   ├── docker-compose.yml
@@ -193,12 +219,14 @@ Run `bash test-notify.sh --help` for details.
 │   └── config.yml.example
 ├── client/
 │   ├── Dockerfile
-│   ├── docker-compose.yml
+│   ├── docker-compose.yml.example  # copy to docker-compose.yml, add mounts
 │   ├── entrypoint.sh
 │   ├── setup.sh
 │   ├── notify.sh
 │   ├── restore.sh
 │   └── config.yml.example
+├── tests/                      # bats suites, `make test`
+├── Makefile                    # `make help`
 ├── test-notify.sh              # notification smoke test
 └── CONTEXT.md                  # domain glossary
 ```

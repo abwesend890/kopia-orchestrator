@@ -1,10 +1,21 @@
 # ── Hosts ────────────────────────────────────────────────────────
-# Format: user@host:remote_dir  (set in .env)
-include .env
+# Format: user@host:clone_dir  (set in .env). Optional so `make test`
+# works in a fresh clone.
+-include .env
+
+# Fast-forwards the clone on each host to origin/main.
+# $(1): space-separated user@host:clone_dir entries
+define pull_hosts
+set -e; \
+for entry in $(1); do \
+	echo "→ $$entry"; \
+	ssh "$${entry%%:*}" "git -C '$${entry#*:}' pull --ff-only"; \
+done
+endef
 
 # ── Targets ──────────────────────────────────────────────────────
 
-.PHONY: help push-server push-proxy push-clients push-all test test-client test-server test-notify test-deps
+.PHONY: help pull-server pull-clients pull-all test test-client test-server test-notify test-make test-deps
 
 # Every target carrying a `## ` comment is listed by `make help`.
 .DEFAULT_GOAL := help
@@ -14,35 +25,17 @@ help: ## Show this help
 	@echo
 	@awk -F ':.*## ' '/^[a-z][a-z-]*:.*## /{ printf "  %-14s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-push-all: push-server push-proxy push-clients ## Sync server, proxy and every client host
+pull-all: pull-server pull-clients ## Pull main on the backup host and every client host
 
-push-server: ## Sync server/ and test-notify.sh to the backup host
-	rsync -avz --delete --exclude='.env' --exclude='config.yml' --exclude='data/' \
-		server/ \
-		$(word 1,$(subst :, ,$(BACKUP_HOST))):$(word 2,$(subst :, ,$(BACKUP_HOST)))/server/
-	rsync -avz test-notify.sh \
-		$(word 1,$(subst :, ,$(BACKUP_HOST))):$(word 2,$(subst :, ,$(BACKUP_HOST)))/test-notify.sh
+pull-server: ## Pull main on the backup host
+	@$(call pull_hosts,$(BACKUP_HOST))
 
-push-proxy: ## Sync proxy/ to the backup host
-	rsync -avz --delete --exclude='.env' --exclude='config.yml' \
-		proxy/ \
-		$(word 1,$(subst :, ,$(BACKUP_HOST))):$(word 2,$(subst :, ,$(BACKUP_HOST)))/proxy/
-
-push-clients: ## Sync client/ and test-notify.sh to every client host
-	@for entry in $(CLIENT_HOSTS); do \
-		host=$${entry%%:*}; \
-		dir=$${entry#*:}; \
-		echo "→ $$host ($$dir)"; \
-		rsync -avz --delete --exclude='.env' --exclude='config.yml' --exclude='docker-compose.yml' --exclude='data/' \
-			client/ \
-			$$host:$$dir/client/; \
-		rsync -avz test-notify.sh \
-			$$host:$$dir/test-notify.sh; \
-	done
+pull-clients: ## Pull main on every client host
+	@$(call pull_hosts,$(CLIENT_HOSTS))
 
 # ── Tests ───────────────────────────────────────────────────────
 
-test: test-client test-server test-notify ## Run every test suite
+test: test-client test-server test-notify test-make ## Run every test suite
 
 test-client: ## Run the client bats tests
 	tests/libs/bats-core/bin/bats tests/client/
@@ -52,6 +45,9 @@ test-server: ## Run the server bats tests
 
 test-notify: ## Run the notification bats tests
 	tests/libs/bats-core/bin/bats tests/test-notify.bats
+
+test-make: ## Run the Makefile bats tests
+	tests/libs/bats-core/bin/bats tests/make.bats
 
 test-deps: ## Fetch the bats submodules
 	git submodule update --init --recursive
